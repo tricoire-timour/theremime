@@ -15,19 +15,20 @@ from synths_utils import Player
 WEBCAM = 1
 WINDOW_NAME = "Theremime"
 
-
-
-def map_option(val, f):
-    return f(val) if val is not None else None
-
 @dataclass
 class Posn:
+    """
+    Reprsents a 3-d coordinate.
+    """
     x: float
     y: float
     z: float
 
 
 class Seer:
+    """
+    Accesses the webcam and gets the hand positioning as input.
+    """
     def __init__(self):
         # Create Landmarker
         base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
@@ -50,6 +51,10 @@ class Seer:
 
     @staticmethod
     def mark_hands(rgb_image, hands):
+        """
+        Draws the average hand positions on the image.
+        This method is unused at the moment, but is a more accurate representation of what's going on.
+        """
         def draw_hand(image, hand, color):
             if hand is None:
                 return image
@@ -65,6 +70,10 @@ class Seer:
      
     @staticmethod
     def draw_landmarks_on_image(rgb_image, detection_result):
+        """
+        Draws hand landmarks and handedness on the image. 
+        This method is adapted from a function in Mediapipe's official hand tracking example.
+        """
         def flip_lr_names(name):
             match name:
                 case "Left":
@@ -112,6 +121,9 @@ class Seer:
         return annotated_image
 
     def get_hands(self):
+        """
+        Gets hand positions from the webcam.
+        """
         rval, frame = self.vc.read()
         self.is_going |= rval
         if not rval:
@@ -134,6 +146,9 @@ class Seer:
 
     @staticmethod
     def hand_to_posn(hand_landmarks):
+        """
+        Takes the hand landmarks and returns the average position of the hand.
+        """
         xs = []
         ys = []
         zs = []
@@ -144,7 +159,10 @@ class Seer:
 
         return Posn(mean(xs), mean(ys), mean(zs))
 
-    def parse_hands(self, detection_result):
+    def parse_hands(self, detection_result) -> tuple[Option, Option]:
+        """
+        Gets the average hand positions, if available.
+        """
         left_points = Option()
         right_points = Option()
 
@@ -157,11 +175,18 @@ class Seer:
         return left_points.map(self.hand_to_posn), right_points.map(self.hand_to_posn)
         
     def __del__(self):
+        """
+        I know this I should be doing this via a context manager but this is frankly far nicer.
+        """
         self.vc.release()
         cv2.destroyWindow(WINDOW_NAME)
 
     
-def theremin(left, right):
+def theremin(left, right) -> tuple[float, float]:
+    """
+    Takes the hand positions and returns the desired frequency and volume.
+    """
+    
     KEY = 261.63
     SCALE_FACTOR = 72
     HALF_TONE = 2 ** (1/12)
@@ -189,7 +214,7 @@ def theremin(left, right):
     
 
 def main():
-    synth = Player(duration=0.1)
+    synth = Player(duration=0.2)
     seer = Seer()
 
     while seer.is_going:

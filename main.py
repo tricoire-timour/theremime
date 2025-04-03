@@ -193,6 +193,11 @@ def theremin(left, right) -> tuple[float, float]:
     SHIFT = 0.3
 
     def tune(x):
+        """
+        My musician friends tell me this is an aberration and I'll undo it 
+        once the actual wave generated sound good or if I can get glissando
+        working.
+        """
         if x >= 1:
             return round(x)
         else:

@@ -8,8 +8,9 @@ import numpy as np
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
+import time
 
-from utils import Option
+from utils import Option, todo
 from synths_utils import Player
 
 WEBCAM = 1
@@ -29,11 +30,14 @@ class Seer:
     """
     Accesses the webcam and gets the hand positioning as input.
     """
-    def __init__(self):
+    def __init__(self, synth: Player):
+        self.synth = synth
         # Create Landmarker
         base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
         options = vision.HandLandmarkerOptions(base_options=base_options,
-                                            num_hands=2)
+                                            num_hands=2,
+                                            running_mode=vision.RunningMode.LIVE_STREAM,
+                                            result_callback=self.handle_detection_result,)
         self.detector = vision.HandLandmarker.create_from_options(options)
 
 
@@ -120,10 +124,28 @@ class Seer:
 
         return annotated_image
 
+    def handle_detection_result(self, detection_result, image, _timestamp):
+        """
+        Handles the detection result from the hand landmarker.
+        This is a callback function that is called when a detection result is available.
+        """
+        self.has_detection_result = True
+        self.detection_result = detection_result
+        
+        hands = self.parse_hands(detection_result)
+
+        try:
+            frequency, volume = theremin(*hands)
+            self.synth.play_note(frequency, volume)
+        except TypeError:
+            print(hands)
+        
+
     def get_hands(self):
         """
         Gets hand positions from the webcam.
         """
+        self.has_detection_result = False
         rval, frame = self.vc.read()
         self.is_going |= rval
         if not rval:
@@ -132,17 +154,19 @@ class Seer:
         
         frame = cv2.flip(frame, 1) # much better for visualisation. 
         image = mp.Image(data=np.array(frame), image_format=mp.ImageFormat.SRGB)
-        detection_result = self.detector.detect(image)
+        timestamp = int(time.time() * 1000) # in milliseconds
+        self.detector.detect_async(image, timestamp)
 
-        annotated_image = self.draw_landmarks_on_image(image.numpy_view(), detection_result)
-        # annotated_image = self.mark_hands(image.numpy_view(), self.parse_hands(detection_result))
-        cv2.imshow(WINDOW_NAME, cv2.cvtColor(annotated_image, cv2.COLOR_RGB2RGBA))
+        
+        if self.has_detection_result:
+            annotated_image = self.draw_landmarks_on_image(image.numpy_view(), self.detection_result)
+            cv2.imshow(WINDOW_NAME, cv2.cvtColor(annotated_image, cv2.COLOR_RGB2RGBA))
 
-        key = cv2.waitKey(1)
-        if key in [27, 32]:
-            self.is_going = False
 
-        return self.parse_hands(detection_result)
+            key = cv2.waitKey(20)
+            if key in [27, 32]:
+                self.is_going = False
+
 
     @staticmethod
     def hand_to_posn(hand_landmarks):
@@ -195,7 +219,7 @@ def theremin(left, right) -> tuple[float, float]:
     def tune(x):
         """
         My musician friends tell me this is an aberration and I'll undo it 
-        once the actual wave generated sound good or if I can get glissando
+        once the actual wave generated sounds good or if I can get glissando
         working.
         """
         if x >= 1:
@@ -220,15 +244,11 @@ def theremin(left, right) -> tuple[float, float]:
 
 def main():
     synth = Player(duration=0.2)
-    seer = Seer()
+    seer = Seer(synth)
 
     while seer.is_going:
-        hands = seer.get_hands()
-        try:
-            frequency, volume = theremin(*hands)
-            synth.play_note(frequency, volume)
-        except TypeError:
-            print(hands)
+         seer.get_hands()
+        
         
     
     

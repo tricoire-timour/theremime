@@ -121,6 +121,7 @@ class DoubleSineSynthesizer(Synthesizer):
         window = self.window(len(samples1), volume)
         return (samples1 + samples2) * window/2
 
+
 class Player:
     """
     Plays audio, based on the synth set in __init__
@@ -148,7 +149,7 @@ class Player:
 
     def __del__(self):
         """
-        Yeah I know I shouldn't do this but I'm not doing this in work code.
+        take care of everything when killing the object.
         """
         self.stream.stop_stream()
         self.stream.close()

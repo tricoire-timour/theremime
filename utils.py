@@ -10,3 +10,9 @@ class Option:
             return Option(None)
         else:
             return Option(f(self.inner))
+        
+def todo():
+    """
+    A simple function to mark a function as TODO.
+    """
+    raise NotImplementedError("This function is not yet implemented.")
